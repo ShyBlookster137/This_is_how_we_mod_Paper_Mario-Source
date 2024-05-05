@@ -1,0 +1,19 @@
+ID 00 | Geno Blast
+
+Total frames: 46
+Intended Framerate: 30 FPS | ~33ms
+Format: CI-4
+x offset: 12
+y offset: 44
+rom offset: 0x0000 [0 Bytes]
+byte size: 12410 Bytes
+
+ID 01 | Geno Blast Charge
+
+Total frames: 107
+Intended Framerate: 30 FPS | ~33ms
+Format: CI-4
+x offset: 226
+y offset: 41
+rom offset: 0x00B8 [184 Bytes]
+byte size: 3132 Bytes

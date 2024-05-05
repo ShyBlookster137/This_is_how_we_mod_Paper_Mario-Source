@@ -1,0 +1,548 @@
+% Automatically dumped from section 00
+#define .Geno_Idle		00EA0000
+#define .Geno_Talk		00EA0001
+#define .Geno_Lay        00EA0006
+#define .Geno_Flash		00EA000D
+#define .Geno_FlashMorph	00EA000E
+#define .Geno_FlashShoot	00EA000F
+#define .Geno_Whirl		00EA0011
+#define .Geno_Hurt       00EA0012
+#define .GenoBurnHurt    .Geno_Hurt
+#define .GenoBurnDeath   .Geno_Lay
+
+#define .Geno_Blast_C     00EA0013
+#define .Geno_Blast_R     00EA0014
+
+#define .GenoPart 1
+
+#define .GenoWhirlDamage 4
+#define .GenoBlastDamage 5
+#define .GenoFlashDamage 7
+
+#new:Actor $Geno {
+% stats
+[Index]         D4b 
+[Level]         5`b 
+[MaxHP]         64`b 
+[Coins]         0`b 
+[Flags]       00000000 
+[StatusTable] $StatusTable_Geno 
+% ai
+[PartsCount]    1`s 
+[PartsTable]  $PartsTable_Geno 
+[Script]      $Script_Init_Geno 
+% move effectiveness
+[Escape]       0`b 
+[Item]        100`b 
+[AirLift]     0`b 
+[Hurricane]    0`b % Bow's "Spook" as well
+[UpAndAway]    0`b 
+[PowerBounce]  80`b 
+[SpinSmash]     4`b % weight (0-4)
+% ui positions
+[Size]         24`b  24`b % width height
+[HealthBar]     0`b   0`b % dx dy
+[StatusTurn]  -10`b  20`b % dx dy
+[StatusIcon]   10`b  20`b % dx dy
+}
+
+#new:DefenseTable $DefenseTable_Geno {
+.Element:Normal     1`
+.Element:Fire      -2`      % -2. Yes I know -2` is a thing but I am choosing violence today
+.Element:End
+}
+
+#new:StatusTable $StatusTable_Geno {
+.Status:Normal      0`
+.Status:Default     0`
+.Status:Sleep       50`
+.Status:Poison      20`
+.Status:Frozen      100`
+.Status:Dizzy       33`
+.Status:Fear        0`
+.Status:Static      100`
+.Status:Paralyze    50`
+.Status:Shrink      80`
+.Status:Stop        50`
+.Status:DefaultTurnMod    0`
+.Status:SleepTurnMod      0`
+.Status:PoisonTurnMod     0`
+.Status:FrozenTurnMod     0`
+.Status:DizzyTurnMod      0`
+.Status:FearTurnMod       0`
+.Status:StaticTurnMod     0`
+.Status:ParalyzeTurnMod   0`
+.Status:ShrinkTurnMod     0`
+.Status:StopTurnMod       0`
+.Status:End
+}
+
+#new:PartsTable $PartsTable_Geno { %ActorPartBlueprint struct in decomp
+/% s32 flags %/                 00800000
+/% s8 index %/                  ~Byte:.GenoPart
+/% Vec3b posOffset %/           00b 00b 00b
+/% Vec2b targetOffset %/        00b 30b %for cursor when selecting to attack in battle
+/% s16 opacity %/               255`s
+/% s32* IdleAnimations %/       $IdleAnimations_Geno
+/% s32* defenseTable %/         $DefenseTable_Geno
+/% s32 eventFlags %/            00000008
+/% s32 elementImmunityFlags %/  00000000
+/% s8 unk_1C %/                 00b
+/% s8 unk_1D %/                 F6b
+/% s8 unk_1E %/                 00b
+/% s8 unk_1F %/                 00b
+/% s8 unk_20 %/                 00000000
+}
+
+#new:IdleAnimations $IdleAnimations_Geno {
+.Status:Normal    .Geno_Idle
+.Status:Stone     .Geno_Idle
+.Status:Sleep     .Geno_Idle %add sleep anim
+.Status:Poison    .Geno_Idle
+.Status:Stop      .Geno_Idle
+.Status:Static    .Geno_Idle
+.Status:Paralyze  .Geno_Idle
+.Status:Dizzy     .Geno_Idle
+.Status:Fear      .Geno_Idle
+.Status:End
+}
+
+#new:Script $Script_Init_Geno {
+     Call  FadeOutMusic  ( 00000000 1` )     % We're using streaming audio no need for this
+     Call  BindTakeTurn       ( .Actor:Self $Script_TakeTurn_Geno )
+     Call  BindIdle           ( .Actor:Self $Script_Idle_Geno )
+     Call  BindHandleEvent    ( .Actor:Self $Script_HandleEvent_Geno )
+     Return
+     End
+}
+
+#new:Script $Script_Idle_Geno {
+     Return
+     End
+ }
+
+#new:Script $Script_HandleEvent_Geno {
+     Call UseIdleAnimation  ( .Actor:Self .False )
+     Call EnableIdleScript  ( .Actor:Self .False )
+     Call SetActorScale     ( .Actor:Self *Fixed[1.0] *Fixed[1.0] *Fixed[1.0] )
+     Call GetLastEvent      ( .Actor:Self *Var0 )
+     Switch  *Var0 
+         CaseOR  ==  .Event:HitCombo % 9
+         CaseOR  ==  .Event:Hit % A
+             SetConst  *Var0  .GenoPart 
+             SetConst  *Var1  .Geno_Hurt 
+             ExecWait  DoNormalHit
+         EndCaseGroup 
+         Case  ==  .Event:BurnHit % E
+             SetConst  *Var0  .GenoPart 
+             SetConst  *Var1  .GenoBurnHurt 
+             SetConst  *Var2  .GenoBurnDeath
+         ExecWait  DoBurnHit 
+         Case  ==  .Event:BurnDeath % 24
+             SetConst  *Var0  .GenoPart 
+             SetConst  *Var1  .GenoBurnHurt 
+             SetConst  *Var2  .GenoBurnDeath
+             ExecWait  DoBurnHit 
+             SetConst  *Var0  .GenoPart 
+             SetConst  *Var1  .GenoBurnDeath
+             ExecWait  DoDeath 
+             Return
+         Case  ==  .Event:Death % 20
+             SetConst  *Var0  .GenoPart 
+             SetConst  *Var1  .Geno_Hurt 
+             ExecWait  DoNormalHit 
+             Wait  10`
+             SetConst  *Var0  .GenoPart  
+             SetConst  *Var1  .Geno_Lay
+             ExecWait  DoDeath 
+             Return
+     EndSwitch
+     Return
+     End
+}
+
+#new:Function $SuperBlockStartGlow { %Call SuperBlockStartGlow (x, y, z, retVar)
+     ADDIU sp, sp, -30
+     SW ra, 0018 (sp)
+     SW s0, 001C (sp)
+     SW s1, 0020 (sp)
+     SW s2, 0024 (sp)
+     SW s3, 0028 (sp)
+     SW s4, 002C (sp)
+
+     ADDU s0, a0, r0
+     LW s1, 000C (s0) %load script args ptr
+
+     
+     JAL ~Func:get_variable
+      LW a1, 0004 (s1) %load VarX
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s2, f0 %XPos
+
+
+     JAL ~Func:get_variable
+      LW a1, 0008 (s1) %load VarY
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s3, f0 %YPos
+
+
+     JAL ~Func:get_variable
+      LW a1, 000C (s1) %load VarZ
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s4, f0 %ZPos
+
+     ORI a0, r0, 0
+     ADDU a1, s2, r0 %xpos
+     ADDU a2, s3, r0 %ypos
+     ADDU a3, s4, r0 %zpos
+     LIF f2, 0.7
+     SWC1 f2, 0010 (sp)
+     JAL 80071750 %fx_energy_orb_wave
+      SW r0, 0014 (sp)
+
+     ADDU s5, v0, r0 %effect instance
+
+     ADDU a0, s0, r0
+     JAL ~Func:get_variable
+     LW a1, 0010 (s1) %load type to set
+
+     SW v0, 001C (s5) %set effect type
+
+     ADDU a0, s0, r0
+     LW a1, 0000 (s1) %load VarRet
+     JAL ~Func:set_variable
+      ADDU a2, s5, r0
+
+     LW ra, 0018 (sp)
+     LW s0, 001C (sp)
+     LW s1, 0020 (sp)
+     LW s2, 0024 (sp)
+     LW s3, 0028 (sp)
+     LW s4, 002C (sp)
+     ADDIU sp, sp, 30
+     JR RA
+     ORI v0, r0, 2
+}
+
+#new:Function $SuperBlockEndGlow {
+     ADDIU sp, sp, -18
+     SW ra, 0010 (sp)
+     LW v0, 000C (a0)
+     JAL ~Func:get_variable
+      LW a1, 0000 (v0)
+
+     ADDU a0, v0, r0
+     LW v1, 0000 (a0)
+     ORI v1, v1, 10
+     SW v1, 0 (a0)
+     LW ra, 00010 (sp)
+     ORI v0, r0, 2
+     JR RA
+     ADDIU sp, sp, 18
+}
+
+#new:Function $MoveSuperBlockEffectInstance {
+     ADDIU sp, sp, -40
+     SW ra, 0018 (sp)
+     SW s0, 001C (sp)
+     SW s1, 0020 (sp)
+     SW s2, 0024 (sp)
+     SW s3, 0028 (sp)
+     SW s4, 002C (sp)
+     SW s5, 0030 (sp)
+     SW s6, 0034 (sp)
+
+     ADDU s6, a0, r0
+
+     ADDU s0, a0, r0
+     LW s1, 000C (s0) %load script args ptr
+
+     %arg index 1
+     ADDU a0, s6, r0
+     JAL ~Func:get_variable
+      LW a1, 0004 (s1) %load VarX
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s2, f0 %XPos
+
+     %arg index 2
+     ADDU a0, s6, r0
+     JAL ~Func:get_variable
+      LW a1, 0008 (s1) %load VarY
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s3, f0 %YPos
+
+     %arg index 3
+     ADDU a0, s6, r0
+     JAL ~Func:get_variable
+      LW a1, 000C (s1) %load VarZ
+
+     MTC1 v0, f0
+     CVT.S.W f0, f0
+     MFC1 s4, f0 %ZPos
+
+
+
+
+     %arg index 4
+     ADDU a0, s6, r0
+     JAL ~Func:get_float_variable
+     LW a1, 0010 (s1) %load effect size
+     MFC1 s5, f0 %size
+
+
+     %arg index 0
+     ADDU a0, s6, r0
+     JAL ~Func:get_variable
+     LW a1, 0000 (s1) %load VarEffectInstance
+
+     LW v0, 000C (v0) %load offset C (coords are here)
+
+
+     SW s2, 0004 (v0) %set new X
+     SW s3, 0008 (v0) %set new Y
+     SW s4, 000C (v0) %set new Z
+     SW s5, 0030 (v0) %set new size
+
+
+     LW ra, 0018 (sp)
+     LW s0, 001C (sp)
+     LW s1, 0020 (sp)
+     LW s2, 0024 (sp)
+     LW s3, 0028 (sp)
+     LW s4, 002C (sp)
+     LW s5, 0030 (sp)
+     LW s6, 0034 (sp)
+     ADDIU sp, sp, 40
+     JR RA
+     ORI v0, r0, 2
+}
+
+%Call(N(SuperBlock_StartGlowEffect), SUPER_BLOCK_MAPVAR, LVar9)
+%SuperBlock_EndGlowEffect
+
+#new:Script $GenoWhirlHitMario {
+     Call SetGoalToTarget (.Actor:Self )
+     Call GetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call AddGoalPos (.Actor:Self -20` 20` 0` ) %-20 X units in front of mario
+     Call SetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call EnemyTestTarget   ( .Actor:Self *Var9 ~Flags:DamageType:0 00000000 00000001 00000010 )
+     Switch  *Var9 
+         CaseOR  ==  .HitResult:Miss % 6
+         CaseOR  ==  .HitResult:Lucky % 5
+         EndCaseGroup
+         Default
+               Call RandInt (99` *VarF)
+               If *VarF == 0  % Geno is very bad at hitting the AC but if the stars allign he just might
+                    Call EnemyDamageTarget ( .Actor:Self *Var0 ~Flags:DamageType:NoContact 00000000 00000000 99` 00000020 )
+               Else
+                    Call EnemyDamageTarget ( .Actor:Self *Var0 ~Flags:DamageType:NoContact 00000000 00000000 .GenoWhirlDamage 00000020 )
+               EndIf
+          EndSwitch
+     Return
+     End
+}
+
+#new:Script $GenoBlastHitMario {
+     Call $SetGuardWindow (5`) %make the timing 2 frames more generous
+     Call SetGoalToTarget (.Actor:Self )
+     Call GetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call SetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call EnemyTestTarget   ( .Actor:Self *Var9 ~Flags:DamageType:0 00000000 00000001 00000010 )
+     Switch  *Var9 
+         CaseOR  ==  .HitResult:Miss % 6
+         CaseOR  ==  .HitResult:Lucky % 5
+         EndCaseGroup
+         Default
+             Call EnemyDamageTarget ( .Actor:Self *Var0 ~Flags:DamageType:NoContact 00000000 00000000 .GenoBlastDamage 00000020 )
+     EndSwitch
+     Call $SetGuardWindow (3`) %set back to normal
+     Return
+     End
+}
+
+#new:Script $Geno_Whirl {
+     Call SetAnimation (.Actor:Self .GenoPart .Geno_Whirl)
+     Call GetActorPos (.Actor:Self *Var0 *Var1 *Var2)
+     Call GetActorPos (.Actor:Player *Var4 *Var5 *Var6)
+     Set *Var8 0
+     Set *Var7 *Var4 %copy player X
+     Add *Var7 30` %30 units in front of player, move will hit
+     Add *Var0 -7`
+     Add *Var1 18`
+     Wait 15`
+     Call $ScrApi_SetEffectColor (0) %green
+     Call $SuperBlockStartGlow (*Var3 *Var0 *Var1 *Var2 0) %glow type 0 (green)
+     Wait 5`
+     Call SetAnimationRate      ( .Actor:Self .GenoPart *Fixed[0.01] )
+     Loop 30`
+          Add *Var0 -25`
+          If *Var0 < *Var7 %if geno whirl has crossed wanted X pos
+               If *Var8 == 0 %make attack hit once
+                    Set *Var8 1
+                    Exec $GenoWhirlHitMario
+               EndIf
+          EndIf
+          Call $MoveSuperBlockEffectInstance (*Var3 *Var0 *Var1 *Var2 *Fixed[0.7])
+          Wait 1`
+     EndLoop
+     Wait 3`
+     Call $SuperBlockEndGlow (*Var3)
+     Call SetAnimationRate      ( .Actor:Self .GenoPart *Fixed[1.0] )
+     Return
+     End
+}
+
+#new:Script $Geno_Blast {
+     
+     Wait 10`  % Wait a little bit to make sure the camera is in place
+     Call SetAnimation (.Actor:Self .GenoPart .Geno_Blast_C)
+     Call $API_PlayCustomFX ( $anm_GenoBlast_charge 226` 41` FF *Debug[0] ) % 106 frames + 9 frames of no anim
+     Call $API_StartCustomAudioPlayback ( $snd_geno_charge 21` )
+     Wait 100`
+
+     Call SetAnimation (.Actor:Self .GenoPart .Geno_Blast_R)
+     Wait 15`
+     Call $API_StartCustomAudioPlayback ( $snd_geno_blast 21` )
+     Call $API_PlayCustomFX ( $anm_GenoBlast_smoke 12` 140` 255` *Debug[0] ) % Smoke is layered behind the beam in actual game 
+     Call $API_PlayCustomFX ( $anm_GenoBlast 12` 44` 128` *Debug[1] )
+     Wait 42` % 46 total
+     Exec $GenoBlastHitMario
+     Wait 4`
+     Return
+     End
+}
+
+#new:Script $GenoFlashHitMario {
+     Call $SetGuardWindow (5`) %make the timing 2 frames more generous
+     Call SetGoalToTarget (.Actor:Self )
+     Call GetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call SetGoalPos (.Actor:Self *VarA *VarB *VarC )
+     Call EnemyTestTarget   ( .Actor:Self *Var9 ~Flags:DamageType:0 00000000 00000001 00000010 )
+     Switch  *Var9 
+         CaseOR  ==  .HitResult:Miss % 6
+         CaseOR  ==  .HitResult:Lucky % 5
+         EndCaseGroup
+         Default
+             Call EnemyDamageTarget ( .Actor:Self *Var0 ~Flags:DamageType:NoContact 0 00000000 .GenoFlashDamage 00000020 )
+     EndSwitch
+     Call $SetGuardWindow (3`)
+     Return
+     End
+}
+
+#new:Script $ShootFlashBall {
+     Call SetAnimation (.Actor:Self .GenoPart .Geno_FlashShoot)
+     Call GetActorPos (.Actor:Self *Var0 *Var1 *Var2)
+     Call GetActorPos (.Actor:Player *Var4 *Var5 *Var6)
+     Set *Var8 0
+     Set *Var7 *Var4 %copy player X
+     Add *Var7 30` %30 units in front of player, move will hit
+     Add *Var0 -35`
+     Add *Var1 18`
+     Wait 15`
+     Call $ScrApi_SetEffectColor (1)
+     Call $SuperBlockStartGlow (*Var3 *Var0 *Var1 *Var2 2) %glow type red
+     Wait 5`
+     Call SetAnimationRate      ( .Actor:Self .GenoPart *Fixed[0.01] )
+     %shoot ball, travel to mario
+     Call $API_StartCustomAudioPlayback ( $snd_Geno_Flash 21` )
+     Loop 8`
+          Add *Var0 -25`
+          Call $MoveSuperBlockEffectInstance (*Var3 *Var0 *Var1 *Var2 *Fixed[0.7])
+          Wait 1`
+     EndLoop
+
+     Wait 20`
+     %grow ball in size each frame
+     SetF  *Var4  *Fixed[0.7]
+     Loop 40`
+          Call $MoveSuperBlockEffectInstance (*Var3 *Var0 *Var1 *Var2 *Var4)
+          AddF *Var4 *Fixed[0.4]
+          Wait 1`
+     EndLoop
+
+     % %end effect
+     Call $SuperBlockEndGlow (*Var3)
+     Call SetAnimationRate      ( .Actor:Self .GenoPart *Fixed[1.0] )
+     Wait 10`
+     ExecWait $GenoFlashHitMario
+     Return
+     End
+}
+
+#new:Script $Geno_Flash {
+     Call SetAnimation (.Actor:Self .GenoPart .Geno_FlashMorph)
+     Wait 22` %animation should play and idle for a couple frames
+     ExecWait $ShootFlashBall
+     Return
+     End
+}
+
+
+#new:Function $GetDpadDirection {
+     ADDIU sp, sp, -18
+     SW ra, 0014 (sp)
+
+     LW a1, 000C (a0)
+     LAH a2, 80074026
+     JAL ~Func:set_variable
+     LW a1, 0000 (a1) %load var to store to
+
+     LW ra, 0014 (sp)
+     ADDIU sp, sp, 18
+     JR RA
+     ORI v0, r0, 2
+}
+
+#new:Script $Script_TakeTurn_Geno {
+     Call  UseIdleAnimation  ( .Actor:Self .False )
+     Call  EnableIdleScript  ( .Actor:Self .False )
+
+     Call RandInt (99` *Var0)
+
+     Switch *Var0
+     Case < 25`
+          ExecWait $Geno_Blast
+     Case < 50`
+          ExecWait $Geno_Flash
+     Default
+          ExecWait $Geno_Whirl
+     EndSwitch
+
+     %force genos moves with the dpad
+     % Call $GetDpadDirection(*Var1)
+     % Switch *Var1
+     %      Case == 0800
+     %           ExecWait $Geno_Flash
+     %      Case == 0400
+     %           ExecWait $Geno_Blast
+     %      Case == 0100
+     %           ExecWait $Geno_Whirl
+     %      Default
+     %           Switch *Var0
+     %           Case < 25`
+     %                ExecWait $Geno_Blast
+     %           Case < 50`
+     %                ExecWait $Geno_Flash
+     %           Default
+     %                ExecWait $Geno_Whirl
+     %           EndSwitch
+     % EndSwitch
+
+
+     Call  UseIdleAnimation  ( .Actor:Self .True )
+     Call  EnableIdleScript  ( .Actor:Self .True )
+     Wait 1`
+     Return
+     End
+}

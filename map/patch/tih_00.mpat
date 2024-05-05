@@ -1,0 +1,453 @@
+
+#define .NpcID:Geno         00000000
+#define .NpcID:Goombario    00000001
+#define .NpcID:Kooper    	00000002
+#define .NpcID:Bombette    	00000003
+#define .NpcID:Parakarry  	00000004
+#define .NpcID:Bow    		00000005
+#define .NpcID:Watt    		00000006
+#define .NpcID:Sushie    	00000007
+#define .NpcID:Lakilester  	00000008
+
+#define .NpcID:Star_Spectator_0  	00000009
+#define .NpcID:Star_Spectator_1_L  	0000000A
+#define .NpcID:Star_Spectator_1_R  	0000000B
+#define .NpcID:Star_Spectator_2_L  	0000000C
+#define .NpcID:Star_Spectator_2_R  	0000000D
+
+#define .AnimID_Idle		00EA0000
+#define .AnimID_Talk		00EA0001
+#define .AnimID_Flash		00EA000D
+#define .AnimID_FlashMorph	00EA000E
+#define .AnimID_FlashShoot	00EA000F
+#define .AnimID_Whirl		00EA0011
+#define .AnimID_Hurt		00EA0012
+
+@ $Script_Main
+{
+	Set   *GB_WorldLocation  .Location:StarWay
+	Call  SetCamPerspective  ( .Cam:Default 00000003 00000019 00000010 00001000 )
+	Call  SetCamBGColor      ( .Cam:Default 00000000 00000000 00000000 )
+	Call  SetCamEnabled      ( .Cam:Default .True
+	Call  SetCamLeadPlayer   ( .Cam:Default .False )
+	Call  MakeNpcs  ( .True $NpcGroupList_Geno )
+	%Exec  $Script_SetupMusic
+	Exec  $Script_MakeEntities
+	Exec  $Script_SetupTexturePan
+	Exec  $Script_EnterMap
+	Return
+	End
+}
+
+@ $Script_EnterMap
+{
+	Call  GetEntryID    ( *Var[0] )
+	Switch  *Var[0]
+		Case  ==  ~Entry:Entry_0
+            Set   *Var[0] $Script_CreateExitTriggers
+			Call ParentColliderToModel	( ~Collider:Elevator_Platform ~Model:Elevator_Cube )
+            Exec $Script_ElevatedEntrance
+		Default
+			Exec  $Script_CreateExitTriggers
+	EndSwitch
+	Return
+	End
+}
+
+#new:Script $Script_ElevatedEntrance {
+
+	Call DisablePlayerInput ( .True )
+		Call MakeLerp	( 0` 100` 60` .Easing:CosInOut) % B = SinOut
+		Label MovingUp
+			Call UpdateLerp()
+			Call TranslateModel ( ~Model:Elevator_Cube 00000000 *Var[0] 00000000 )
+			Call UpdateColliderTransform ( ~Collider:Elevator_Platform )
+			Wait 1`	
+		If *Var[1] == 1
+			Goto MovingUp
+		EndIf
+		Call DisablePlayerInput ( .False )
+		Wait 2`
+
+Return
+End
+}
+
+#new:NpcGroupList $NpcGroupList_Geno
+{
+	00000001 		% # NPcs in Group
+	$NpcGroup_Geno 	% NPC Group
+	30000000		% Battle ID
+
+	0000000D 				% # NPcs in Group
+	$NpcGroup_Spectators 	% NPC Group
+	00000000				% Battle ID
+
+	00000000 00000000 00000000 % Terminating on empty
+}
+
+#new:NpcGroup $NpcGroup_Spectators
+{
+	.NpcID:Goombario   $NpcSettings_Geno ~Vec3f:Goombario
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Goombario
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Kooper   $NpcSettings_Geno ~Vec3f:Kooper
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Kooper
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Bombette   $NpcSettings_Geno ~Vec3f:Bombette
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Bombette
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Parakarry   $NpcSettings_Geno ~Vec3f:Parakarry
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Parakarry
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Bow   $NpcSettings_Geno ~Vec3f:Bow
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Bow
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Watt   $NpcSettings_Geno ~Vec3f:Watt
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Watt
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Sushie   $NpcSettings_Geno ~Vec3f:Sushie
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Sushie
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Lakilester   $NpcSettings_Geno ~Vec3f:Lakilester
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Lakilester
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Star_Spectator_0   $NpcSettings_Geno ~Vec3f:Star_Spectator_0
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Star_Spectator_0
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Star_Spectator_1_L   $NpcSettings_Geno ~Vec3f:Star_Spectator_1_L
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Star_Spectator_1_L
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Star_Spectator_1_R   $NpcSettings_Geno ~Vec3f:Star_Spectator_1_R
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Star_Spectator_1_R
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Star_Spectator_2_L   $NpcSettings_Geno ~Vec3f:Star_Spectator_2_L
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Star_Spectator_2_L
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+
+	.NpcID:Star_Spectator_2_R   $NpcSettings_Geno ~Vec3f:Star_Spectator_2_R
+	00802909 % Flags
+	$Script_Init_Spectator
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Star_Spectator_2_R
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+}
+
+#new:NpcGroup $NpcGroup_Geno
+{
+	.NpcID:Geno   $NpcSettings_Geno ~Vec3f:Geno 
+	00802909 % Flags
+	$Script_Init_NPCs
+	00000000 % initVarCount, "just leave at 0" ¯\_(ツ)_/¯
+	00000000 % initVar, "just leave at 0" ¯\_(ツ)_/¯
+	000000B4 % Initial world yaw
+	~NoDrops
+	~Movement:Geno
+	~AnimationTable:Geno
+	00000000 % Supposedly unknown
+	00000000 % Supposedly unknown
+	00000000 % $ExtraAnimationList
+	001A0064 % Goombario NPC Tattle
+}
+
+#new:NpcSettings $NpcSettings_Geno
+{
+	00000000 % NULL
+	0024s % Collision Height
+	0018s % Collision Radius
+	00000000 % *AI
+	00000000 % $Interact
+	00000000 % $AI
+	00000000 % $Hit
+	00000000 % $Aux
+	00000000 % $Defeat
+	00000000 % ---
+	00000000 % ---
+	00630000
+}
+
+#new:Script $Script_Init_Spectator {
+	%Call BindNpcIdle 			( .Npc:Self $Script_Idle_Spectators )
+Return
+End
+}
+
+#new:Script $Script_Idle_Spectators {
+	%Call SetNpcAnimation ( .Npc:Self  )
+	Wait 1`
+Return
+End
+}
+
+#new:Script $Script_Init_NPCs
+{
+	Call BindNpcIdle 			( .Npc:Self $Script_Idle_Geno )
+	Call BindNpcInteract      	( .Npc:Self $Script_Interact_Geno )
+	Call BindNpcDefeat ( .Npc:Self $Script_Geno_Defeat )
+Return
+End
+}
+
+#new:Script $Script_Geno_Defeat
+{
+	Call $API_StartCustomAudioPlayback ( $mus_credits 20` )
+	Call $API_StartCustomAudioPlayback ( $snd_GenoBye 21` )
+	Call SpeakToPlayer ( .NpcID:Geno .AnimID_Talk .AnimID_Idle 0 002F0003 )
+	Exec $Script_MakeGenoVanishTy
+Return
+End
+}
+
+#new:Script $Script_MakeGenoVanishTy {
+	Call ShowMessageAtScreenPos ( 002F0002 000000A0 00000028 )
+	Wait 1`
+Return
+End
+}
+
+#new:Function $RemoveFuncCall {
+	LI t0, 8014A950
+	SW r0, 0000 (t0)
+	JR RA
+	ORI v0, r0, 2
+}
+
+#new:Function $RestoreFuncCall {
+	LI t0, 8014A950
+	LI t1, 0C0529F8
+	SW t1, 0000 (t0)
+	JR RA
+	ORI v0, r0, 2
+}
+
+#new:Function $SetVolume {
+	LI v0, 80159AE6
+	LW t0, 000C (a0)
+	LW t1, 0000 (t0)
+	SH t1, 0000 (v0) %set current volume
+	LI v0, 80159AE4
+	SH t1, 0000 (v0) %set volume to raise to
+	JR RA
+	ORI v0, r0, 2
+}
+
+
+#new:Script $Script_Idle_Geno
+{
+	Call SetNpcAnimation ( .Npc:Self .AnimID_Idle )
+	%If *MapFlag[0] == .True
+		Call AwaitPlayerApproach ( ~Vec2d:Geno 50` )
+		Call DisablePlayerInput ( .True )
+	%%%%% PLEASE
+		% Call  $API_StartCustomAudioPlayback ( $mus_SmithyBattle 20` )
+		Call  $API_StartCustomAudioPlayback ( $snd_GenoVoice 21` )
+	%%%%% WORK
+		Call SpeakToPlayer ( .NpcID:Geno .AnimID_Talk .AnimID_Idle 0 002F0000 )
+
+		Call GetNpcPos ( .NpcID:Geno *Var[0] *Var[1] *Var[2] )
+		Set *Var[A] *Var[1]
+		Add *Var[A] 16`
+	
+		Call PlayEffect ( ~FX:LensFlare:Fixed *Var[0] *Var[A] *Var[2] 00000010 )
+		Call PlaySound		( 00000010 )
+		Call SetNpcAnimation ( .Npc:Self .AnimID_Flash )
+	
+		Wait 20`
+		Call  PlayEffect ( ~FX:Sparkles:Star *Var[0] *Var[A] *Var[2] 25` )
+		Call PlaySound ( 00000064 )
+	
+		Wait 20`
+		Call SetNpcAnimation ( .Npc:Self .AnimID_FlashMorph )
+	
+		Wait 12`
+		%Call SetNpcCollisionSize ( .NpcID:Geno 0024 0032 )
+		Add *Var[A] 200`
+		Add *Var[2] 4 % Offset lighting Z to prevent Z fighting
+		Call PlayEffect ( ~FX:Lightning *Var[0] *Var[A] *Var[2] *Var[0] *Var[1] *Var[2] 00000004 00000020 )
+		Call PlaySound  ( 0000020A )
+		Set *MapFlag[0] .True
+	
+		
+
+		Thread
+			Call $RemoveFuncCall()
+			Wait 50`
+			Call $RestoreFuncCall
+		EndThread
+
+		Wait 10`
+		Call  $API_StartCustomAudioPlayback ( $mus_SmithyBattle 20` )
+		Call StartBossBattle ( FFFFFFFF )
+	%EndIf
+Return
+End
+}
+
+
+#new:Script $Script_Interact_Geno
+{
+	Call GetNpcPos ( .NpcID:Geno *Var[0] *Var[1] *Var[2] )
+	Set *Var[A] *Var[1]
+	Add *Var[A] 16`
+
+	Call PlayEffect ( ~FX:LensFlare:Fixed *Var[0] *Var[A] *Var[2] 00000010 )
+	Call PlaySound		( 00000010 )
+	Call SetNpcAnimation ( .Npc:Self .AnimID_Flash )
+
+	Wait 20`
+	Call  PlayEffect ( ~FX:Sparkles:Star *Var[0] *Var[A] *Var[2] 25` )
+	Call PlaySound ( 00000064 )
+
+	Wait 20`
+	Call SetNpcAnimation ( .Npc:Self .AnimID_FlashMorph )
+
+	Wait 12`
+	%Call SetNpcCollisionSize ( .NpcID:Geno 0024 0032 )
+	Add *Var[A] 200`
+	Add *Var[2] 4 % Offset lighting Z to prevent Z fighting
+	Call PlayEffect ( ~FX:Lightning *Var[0] *Var[A] *Var[2] *Var[0] *Var[1] *Var[2] 00000004 00000020 )
+	Call PlaySound  ( 0000020A )
+	Set *MapFlag[0] .True
+
+	Wait 10`
+Return
+End
+}

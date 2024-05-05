@@ -1,0 +1,562 @@
+% Here it is. The streaming audio portion of SkyLib. (beta)
+% This stuff is a MESS but it *is* functional.
+% Original 'Play_Instrument' function by alex through use of decomp, ported in a ~2 hour vc to asm by the two of us
+% Janky code that enables streaming the audio data from ROM by ShyBlook.
+% C/Python Script to easily append the audio data to ROM by rain.
+
+% Please note that this patch still has 'beta' in the name for a reason.
+% Some of this is not fully realised feat. some hacky fixes in order to be able
+% to have this work in time for the battle jam deadline.
+% I will continue work on both this and the image patch sometime after the jam
+% and update all of this. -ShyBlook
+
+#define .AudioRomPtr        8008EFF4
+#define .SampleRate32K      1.0
+%%%#define .FlagLoopEnabled    00000004
+%%%#define .FlagLoopOnNext     00000002
+%%%#define .FlagSwitchBuffer   00000001
+
+#reserve 0000FA00 $DMA_Buffer_mus_0     % 64.000 Bytes
+#reserve 0000FA00 $DMA_Buffer_mus_1     % 64.000 Bytes
+#reserve 0000FA00 $DMA_Buffer_sfx_0     % 64.000 Bytes
+#reserve 0000FA00 $DMA_Buffer_sfx_1     % 64.000 Bytes
+%%%#reserve 00007D00 $DMA_Buffer_sfx_2 % 32.000 Bytes
+
+#export:Function $play_instrument  % original function by alex, stripped down for genomod
+{
+        ADDIU	sp, sp, -32`
+        SW	    ra, 28` (sp)
+        SW	    s2, 24` (sp)
+        SW	    s1, 20` (sp)
+        SW	    s0, 16` (sp)
+
+        %%% S0 is currently pointing to our current audioHeader
+
+                    %LW	    v0, 12` (a0)        % Load script context
+                    %LW	    a1, 0` (v0)         % AI = StreamingAudioBuffer struct arg
+
+        LAW     S1, 8009A640        % LUI   s1, 8009 | 8009A600 'Game State' (int32)
+	 	                            % LW    s1, A640 (s1)
+                    %JAL	    ~Func:get_variable
+                    %NOP
+                    %COPY	s2, v0              % Set S2 = StreaminAudioBuffer struct
+                %LA      S2, $Instrument_Music       % Load Instrument
+
+                    %COPY	v1, R0              % Set V1 = 0
+                    %LI	    a0, 4896`           % 0x1320
+        LAW     A1, 8009A5C0        % LUI	a1, 8009 | 8009A5C0 might hold address of the voice table?
+                                    % LW	a1, A5C0 (a1)
+                    .Label2
+                    %ADDU	s0,a1,a0
+
+                    %LBU	    v0, 69` (s0)        % Set V0 = byte at A1 + 4896` + 69` (Who knows) | 69 aka 0x45 could refer to priority field of AuVoice struct
+                    %BEQ	    v0, R0, .Label1     % <._D_LM10> | I assume if V0 = 0 that means this voice is free
+    	            %NOP
+     	            %ADDIU	v1, v1, 1`          % voice wasn't free, increase loop counter
+    	            %SLTI	v0, v1, 24`         % check if we've looked at all 24 voices
+   	                %BNE	    v0, R0, .Label2     % Loop if there's voices which might still be free
+  	 	            %ADDIU	a0, a0, 72`         % and offsets A0 by 72` each time therefore also offsetting S0 by 72`
+
+        .Label1
+                    %BNE	    v1, R0, .Label3     % <._D_LBE2+0x4> Can turn this into BNEL no problem? | If voice 0 was free we branch?
+                    %LI	    v0, 64`
+
+    	            %LBU	    v0, 6621` (a1)      % ah yes totally normal offset I 100% understand this
+
+    	            %BEQ	    v0, R0, .Label4     % <._D_LBE2>
+
+            LW      S2, 001C (S0)   % instrument struct
+            LBU     T0, 0004 (S3)   % load voice index
+            SLTI    T4, T0, 21`     % If voice index < 21 T4 = 1 else T4 = 0
+
+            BEQL    T4, R0, .voice21
+            ADDIU   A1, A1, 72`     % add offset if voice index is 21 (or above but scuffed final day code)
+            .voice21
+
+     	    ADDIU	s0,a1, 6336` %6552`        % S0 is always changed here unless voice 0 happened to be free? | 6408 = v21
+
+    	COPY	a0,s0
+   	 	JAL     80053888            % au_reset_nonfree_voice = 0x; // type:func rom:0x2EC88
+        LBU     A1, 0004 (S3)       % load voice index
+    	        %%LI	    a1, 23`             % potentially the voice index? | almost certainly. this appears to make sure voice #23 is cleared and up for grabs
+
+        .Label4
+     	LI	    v0, 64`             
+        .Label3
+       	SB	    v0, 14` (s0)        % Set voice pan?
+
+      	SB	    R0, 15` (s0)        % Set voice reverb?
+
+      	LHU	    v1, 184` (s1)
+
+    	LI      V0, $DummyInstrumentEnvelope[8]     %LUI	v0, 8009     %LIA	v0, 8009AB6C % EnvelopePressDefault = 0x8009AB6C; // type:data
+    	 	                        % ADDIU	v0,v0, AB6C
+      	SW	    v0, 20` (s0)        % envelope, press
+
+   	 	LI      V0, $DummyInstrumentEnvelope[C] %LUI	v0, 8009           %LIA	v0, 8009AB70 % EnvelopeReleaseDefault = 0x8009AB70; // type:data
+    	 	                        % ADDIU	v0,v0, AB70
+   	    SW	    v0, 24` (s0)        % envelope, release
+
+     	SW	    s2, 0` (s0)         % Set Instrument (aka our 'AudioBufferStruct')
+
+    	SH	    v1, 64` (s0)        % Set clientvolume
+
+    	LWC1	f0, 32` (s2)        % Load Sample rate
+
+       	LI	    v0, 2`
+     	SB	    v0, 67` (s0)        % Store 2 at offset 67. Who knows why
+
+       	SWC1	f0, 4` (s0)         % Set Sample rate | aka f32 pitchRatio
+
+   	 	LBU	    v1, 188` (s1)
+
+      	LI	    v0, 7`
+   	 	SB	    v0, 68` (s0)        % offset 0x44 "client priority" = 7 | really important according to original alec code
+
+      	SB	    v1, 69` (s0)        % offset 0x45 "priority"
+
+      	LBU	    v1, 190` (s1)
+      	SB	    v1, 16` (s0)        % offset 0x10 "busId" - IDK
+
+     	LW	    ra, 28` (sp)
+     	LW	    s2, 24` (sp)
+    	LW	    s1, 20` (sp)
+       	LW	    s0, 16` (sp)
+      	            %LI	    v0, 2`              % Can remove once turned into asm func
+    	JR	    RA
+      	ADDIU	sp,sp, 32`
+}
+
+#new:Data $AudioRomAddressBuffer { 00000000 }
+
+% SAMPLE RATES - 0.125 = 4K | 0.25 = 8K | 0.34453125 = 11025 | 0.5 = 16K | 0.6890625 = 22050 | 1.0 = 32K
+
+#new:Data $DummyInstrumentEnvelope {
+  /% 0x00 count %/ 1b
+  /% 0x01 unk_01 %/ 0b 0b 0b
+  /% 0x04 offsets[0].offsetPress %/ 0008s
+  /% 0x06 offsets[0].offsetRelease %/ 000Cs
+
+  /% press %/
+  /% 0x08 %/ 94`b 127`b % ENV_TIME_280MS 127 | was 127` is now 255`
+  /% 0x0A %/ 255`b 0`b % END
+
+  /% release %/
+  /% 0x0C %/ 94`b 0`b % ENV_TIME_550MS 0 | was 52`
+  /% 0x0E %/ 255`b 0`b % END
+}
+
+%  RAM: 0x8008EFF4 | ROM: 0x6A3F4
+
+%%% NAMING CONVENTIONS %%%
+% Music Header:     "$mus_[SongTitle]"
+% SFX Header:       "$sfx_[SfxName]"
+
+#export:Data $mus_SmithyBattle { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 003577600`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000288000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 001788800`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ FFb          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 04b          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_mus_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_mus_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_Music % temp | instrument struct
+}
+
+#export:Data $snd_GenoVoice { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 000512000`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 000256000`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ 00b          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 08b          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_sfx_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_sfx_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_SFX   % temp | instrument struct
+}
+
+#export:Data $snd_geno_blast { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 000192000`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 000096000`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ 00b          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 0Cb          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_sfx_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_sfx_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_SFX   % temp | instrument struct
+}
+
+#export:Data $snd_geno_charge { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 000256000`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 000128000`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ 00b          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 10b          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_sfx_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_sfx_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_SFX   % temp | instrument struct
+}
+
+#export:Data $snd_GenoBye { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 001280000`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 000640000`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ 00b          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 14b          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_sfx_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_sfx_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_SFX   % temp | instrument struct
+}
+
+#export:Data $snd_Geno_Flash { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 000320000`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 000160000`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ 00b          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 18b          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_sfx_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_sfx_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_SFX   % temp | instrument struct
+}
+
+#export:Data $mus_credits { % Music Header [20 Bytes]
+    /% 0x00 %/ .AudioRomPtr % Pointer to pointer in RAM which points to audio in ROM
+    /% 0x04 %/ 004729600`   % Total size of audio in Bytes | 14854080` for BA @ 32KH
+    /% 0x08 %/ 000000000`   % Loop Start in samples     | This is ignored if the loop mode is 0
+    /% 0x0C %/ 002364800`   % Loop End in samples       | This is ignored if the loop mode is 0 | 27 frame chunk
+    /% 0x10 %/ 0000s        % Current audio chunk index | This is essentially equal to audio_pos[in bytes] / 64000 (rounded down)
+    /% 0x12 %/ FFb          % 0 = no loop, -1 = infinite loop, 1-127 = loop x times
+    /% 0x13 %/ 1Cb          % soundTableOffset | offset of the audio data in the address table in ROM
+
+    /% 0x14 %/ $DMA_Buffer_mus_0 % temp | buffer address 0
+    /% 0x18 %/ $DMA_Buffer_mus_1 % temp | buffer address 1
+    /% 0x1C %/ $Instrument_Music % temp | instrument struct
+}
+
+#export:Data $Instrument_Music      % This basically needs to be the exact same. This is highly annoying. The only thing one might be able to do without is pitch ratio but that would offset the struct :/
+{
+    /% 0x00 %/ $DMA_Buffer_mus_0    % Pointer to DMA'd audio chunk              | Update this
+    /% 0x04 %/ 64000`               % Size of current chunk in bytes | 32000    | Update this
+    /% 0x08 %/ 0                    % UNK_PTR loopPredictor
+    /% 0x0C %/ 0`                   % loop start 
+    /% 0x10 %/ 0`                   % loop end    | uses samples
+    /% 0x14 %/ 0`                   % loop count  | this will always be 0
+    /% 0x18 %/ 0                    % predictor*
+    /% 0x1C %/ 0000s                % dc_bookSize
+    /% 0x1E %/ 4800`s               % keyBase
+    /% 0x20 %/ 1.0                  % Sample Rate / 32000                       | Update this
+    /% 0x24 %/ 01b                  % type
+    /% 0x25 %/ 00b                  % unk_25
+    /% 0x26 %/ 00b                  % unk_26
+    /% 0x27 %/ 00b                  % unk_27
+    /% 0x28 %/ 00b                  % unk_28
+    /% 0x29 %/ 00b                  % unk_29
+    /% 0x2A %/ 00b                  % unk_2A
+    /% 0x2B %/ 00b                  % unk_2B
+    /% 0x2C %/ $DummyInstrumentEnvelope % 8009AB64
+}
+
+#export:Data $Instrument_SFX      % This basically needs to be the exact same. This is highly annoying. The only thing one might be able to do without is pitch ratio but that would offset the struct :/
+{
+    /% 0x00 %/ $DMA_Buffer_sfx_0    % Pointer to DMA'd audio chunk              | Update this
+    /% 0x04 %/ 64000`               % Size of current chunk in bytes | 32000    | Update this
+    /% 0x08 %/ 0                    % UNK_PTR loopPredictor
+    /% 0x0C %/ 0`                   % loop start 
+    /% 0x10 %/ 0`                   % loop end    | uses samples
+    /% 0x14 %/ 0`                   % loop count  | this will always be 0
+    /% 0x18 %/ 0                    % predictor*
+    /% 0x1C %/ 0000s                % dc_bookSize
+    /% 0x1E %/ 4800`s               % keyBase
+    /% 0x20 %/ 1.0                  % Sample Rate / 32000                       | Update this
+    /% 0x24 %/ 01b                  % type
+    /% 0x25 %/ 00b                  % unk_25
+    /% 0x26 %/ 00b                  % unk_26
+    /% 0x27 %/ 00b                  % unk_27
+    /% 0x28 %/ 00b                  % unk_28
+    /% 0x29 %/ 00b                  % unk_29
+    /% 0x2A %/ 00b                  % unk_2A
+    /% 0x2B %/ 00b                  % unk_2B
+    /% 0x2C %/ $DummyInstrumentEnvelope % 8009AB64
+}
+
+% size of 1 chunk (1 second of audio) = 32K samples = 64K Bytes
+% todo later: check for loop mode
+
+#export:Function $update_streaming_audio % asm function to make streaming audio work.
+{
+    PUSH    RA, S0, S1, S2, S3, S4
+
+    LA      S3, $ActiveStreamingAudio
+    ADDU    S4, R0, r0          % Clear S4 (loop counter)
+
+    .Loop
+
+    SLL     T0, S4, 3           % Loop counter*8 to determine offset in activestreamingaudio struct.
+    ADDU    S3, S3, T0          % Add offset
+
+    LW      S0, 0000 (S3)       % Get AudioHeader*
+    BEQ     S0, R0, .END        % Terminate if nullptr
+    LBU     T0, 0005 (S3)       % Load frames until next dma
+
+    
+    ADDIU   T1, T0, -1`         % Advance frame counter
+    SLTI    T4, T1,  1`         % If frame counter <= 0 T4 = 1, else T4 = 0 | This really only exists so a frame counter underflow doesn't cause issues
+
+    BEQL    T4, R0, .END        % If frame counter has not hit 0 yet, we terminate | Compare T0 == 0 for old version
+    SB      T1, 0005 (S3)       % Store new frame counter on branch
+
+    JAL     $play_instrument    % Play this function here for update order reasons 
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% FETCH ACTUAL POINTER TO AUDIO %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    LW      S1, 0000 (S0)       % Load pointer to rom pointer | S1 = 8008EFF4 | [DELAY SLOT]
+    LW      A0, 0000 (S1)       % Load pointer to audio in rom | A0 contains rom address table pointer
+    LBU     T0, 0013 (S0)       % Load soundTableOffset
+
+    ADDU    A0, A0, T0          % Set A0 = RomAddressTable + soundTableOffset to get correct audio entry
+
+    LA      A2, $AudioRomAddressBuffer
+    JAL     ~Func:dma_copy
+    ADDIU   A1, A0, 4`          % offset by 4 to get one whole address
+
+    LA      S1, $AudioRomAddressBuffer
+    LW      S1, 0000 (S1)       % Get actual ROM address of audio
+
+    ORI     T0, R0, FA00        % Set T0 to 64000 (0x0000FA00)
+    LHU     T1, 0010 (S0)       % Load audio chunk index into T1
+
+    
+    %%% from here we need to dma from S1 + soundTableOffset to S1 + soundTableOffset + 4 in order to retrieve the actual ROM pointer to the audio
+    
+    MULTU   T0, T1              % 64000*Chunk_IDX
+    MFLO    V0                  % Fetch result in V0
+    NOP
+    NOP
+    LBU     T2, 0006 (S3)       % Load looping flag
+
+
+    BEQL    T2, R0, .notLooping % If the looping flag has not been set, continue as usual
+    ADDU    S1, S1, V0          % Add calculated offset to audio pointer if looping start is not occuring
+
+    %%% audioHeader loop field code %%%
+    LB      T2, 0012 (S0)       % load loop arg
+    BEQL    T2, R0, .END        % terminate if loop arg == 0
+    SW      R0, 0000 (S3)       % clear entry
+    %%% audioHeader loop field code %%%
+
+    LW      T2, 0008 (S0)       % Load looping start timestamp into T2
+    SLL     T2, T2, 1           % Multiply by 2 | samples -> bytes
+
+    ADDU    S1, S1, T2          % Add the looping start as pointer offset
+
+    SUBU    T2, T2, V0          % Subtract current chunk index based offset (64K*index) from start point to get current chunk size | was 'SUB'
+    SUBU    T0, T0, T2          % T0 = 64000 - (loop_start_offset - (64K*index))
+
+    SB      R0, 0006 (S3)       % Clear looping flag
+
+        BEQ     R0, R0, .NoSFXLoop      % DEBUG | This will break if the audio loop is < 1 sec as we are currently assuming that won't be the case
+    ADDIU   T1, T1, 1`          % Increase chunk index 
+
+    .notLooping
+    LW      T2, 000C (S0)       % Load loop end timestamp
+    SLL     T2, T2, 1           % Multiply by 2 to convert samples into bytes [1 Sample = 2 Bytes]
+
+% loop end point - current audio pos. (64K*index) < 64K -> do looping things
+
+    SUB    T2, T2, V0          % Subtract current offset from end point | was 'SUB'
+
+    BGTL    T2, T0, .NoSFXLoop  % If end point - current offset > 64K Bytes, branch | If the branch doesn't occur, we need to dma less than 64K Bytes
+    ADDIU   T1, T1, 1`          % DBG - Increase audio chunk index by 1 if our chunk was of normal size | THIS is HACKY as of now and will NEED FIXING
+
+
+    % This block runs only if we are currently in the chunk of audio containing the end loop timestamp
+    LW      T1, 0008 (S0)       % Load loop starting timestamp
+    SLL     T1, T1, 1           % Multiply by two to convert from samples to bytes
+
+    %%% Calculate chunk index of audio chunk containing the loop start timestamp
+    DIVU    T1, T0              % starting timestamp / 64K
+    MFLO    T1                  % fetch result (auto rounded down)
+    NOP                         % These NOPS might be optional
+    NOP    
+
+    LI      T0, 01              % Prepare for flag setting
+    SB      T0, 0006 (S3)       % Set flag to tell program we're working from a start position next frame (looping)
+
+    COPY    T0, T2              % Copy our byte size that is less than 64K Bytes into T0
+
+    %%% REGISTERS AT THE END OF THIS: T0 = current chunk size (<= 64K) | T1 = index that contains loop start section
+
+    .NoSFXLoop
+    SH      T1, 0010 (S0)       % Set new audio chunk index
+
+    COPY    S2, T0              % Set S2 to current chunk size | DEBUG
+
+    %ORI     T0, R0, 7D00       % Set T0 to 32000
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% DMA LOGIC BEGINS HERE %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    LW      T5, 001C (S0)           % Load instrument from audioHeader
+                %%%LA      T5, $Instrument_Music   % Load Instrument struct into T5 | Important offsets: [0x00] Dma Buffer*, [0x04] audio size in bytes 
+    LBU     T1, 0007 (S3)           % Load dma switch flag
+    SLTI    T4, T1, 1               % If T1 == 1 -> T4 = 0 | If T1 == 0 -> T4 = 1 | Basically we just do DmaSwitch = !DmaSwitch
+
+    BEQ     T4, R0, .useBuffer_1    % If T4 == 0, we use dma_buffer_1
+    SW      T0, 0004 (T5)           % Store new audio chunk size
+
+    LW      A2, 0014 (S0)           % Audio Buffer 0
+                %%%LA      A2, $DMA_Buffer_mus_0   % Being here means we're using buffer_0
+    SW      A2, 0000 (T5)           % Update the buffer address of our instrument to mus_0
+
+    .DMA_ZONE                       % We will always land here just with A2 holding a different buffer*
+    SB      T4, 0007 (S3)           % Store inverted dma switch flag
+    COPY    A0, S1                  % Copy Audio pointer with offsets into A0
+    JAL     ~Func:dma_copy          % dma the data to our buffer                     
+    ADDU    A1, S1, T0              % Add our current chunk's byte size to the audio pointer with offsets and store in A1 (dma range = S1 -> S1 + 64K Bytes or less)
+
+    BEQ     R0, R0, .ExitDMA
+    NOP
+
+    .useBuffer_1
+    LW      A2, 0018 (S0)           % Audio Buffer 1
+                %%%LA      A2, $DMA_Buffer_mus_1
+    BEQ     R0, R0, .DMA_ZONE
+    SW      A2, 0000 (T5)           % Update the buffer address of our instrument t0 mus_1
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% FRAME CALCULATIONS BEGIN HERE %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    .ExitDMA
+    % Once the data is dma'd, we need to determine the length of our audio in frames
+    % To do this, we need to divide our chunk size by 64000 and then multiply the result by 30, rounded down
+
+    ORI     T3, R0, FA00        % Set T3 to FA00 | 64000
+    COPY    T0, S2              % retrieve chunk size from S2
+    
+    MTC1    T0, F0              % Move T0 to coproc in F0
+    MTC1    T3, F2              % Move T3 to coproc in F2
+    CVT.S.W F0, F0              % Convert chunk size to float
+    CVT.S.W F2, F2              % Convert 64000 to 64000.0F
+
+    DIV.S   F0, F0, F2          % Divide chunk size by 64K, store in F0
+
+    ADDIU   T0, R0, 30`         % Set T0 to 30 (Maximum FPS)
+    MTC1    T0, F2              % Move 30 to coproc in F2
+    CVT.S.W F2, F2              % Convert 30 to 30.0F
+    MUL.S   F0, F0, F2          % multiply 30 by (chunk size/64000.0F)
+    CVT.W.S F0, F0              % Convert our result in F0 back to an integer, rounding down
+    MFC1    T0, F0              % Move F0 back into cpu into T0
+    
+    %%% T0 now contains the amount of frames the current audio will last, we just need to return it
+
+    SB      T0, 0005 (S3)       % Update frame counter    
+
+    .END
+    ADDIU   S4, S4, 1`          % Increment loop counter
+    SLTI    T4, S4, 2           % Continue loop if counter < 2
+    BNE     T4, R0, .Loop       
+    NOP
+
+
+    POP     RA, S0, S1, S2, S3, S4
+    JR      RA
+    LI      V0, 2
+}
+
+
+#export:Function $DBG_GetSoundData % Out {var chunk index} {var chunk size in bytes}
+{ 
+    PUSH    RA, S0, S1
+    LA      S0, $mus_SmithyBattle
+    LW		S1, C (A0)
+    LHU      A2, 0010 (S0) % get chunk index
+    JAL 	~Func:set_variable % pass width from A2 to A1 so it can be returned
+    LW		A1, 0000 (S1)
+
+    %LBU      A2, 0013 (S0) % get dma switch state
+    %JAL 	~Func:set_variable
+    %LW		A1, 0004 (S1)
+
+    %LA      S0, $StreamingAudioBuffer_ALT
+    %LW      A2, 0004 (S0) % get alt chunk size
+    %JAL 	~Func:set_variable
+    %LW		A1, 0008 (S1)
+
+    POP     RA, S0, S1
+    JR      RA
+    LI      V0, 2
+}
+
+
+#export:Function $API_StartCustomAudioPlayback % IN: AudioHeader*, AudioChannel [(2)0-(2)3]
+{
+    PUSH    RA, S0, S1
+
+    LW      S0, 000C (A0)       % get script context
+    JAL     ~Func:get_variable
+    LW      A1, 0000 (S0)       % retrieve AudioHeader*
+
+    COPY    S1, V0              % S1 = AudioHeader*
+    JAL     ~Func:get_variable
+    LW      A1, 0004 (S0)       % retrieve AudioChannel
+
+    ADDIU   T0, V0, -20`        % Set T0 = AudioChannel - 20 (this will give us the proper index in the ActiveAudio struct)
+    SLL     T0, T0, 3           % Multiply index by entry size [8]
+
+    LA      S0, $ActiveStreamingAudio
+    ADDU    S0, S0, T0          % Add offset to ActiveAudio*
+
+    SW      S1, 0000 (S0)       % Store AudioHeader*
+    SW      R0, 0004 (S0)       % Reset timers etc
+    SB      V0, 0004 (S0)       % Store AudioChannel / voice
+
+    POP     RA, S0, S1
+    JR      RA
+    LI      V0, 2
+}
+
+#export:Function $HotswapMusic % switches regular audio with chain variant at will
+{
+    PUSH    RA, S0
+
+    LA      S0, $mus_SmithyBattle
+    LBU     T0, 0013 (S0)
+    SLTI    T4, T0, 04
+    SLL     A2, T4, 2       % Either 0*4 or 1*4 -> 0 or 4
+    SB      A2, 0013 (S0)
+
+    POP     RA, S0
+    JR      RA
+    LI      V0, 2
+}
+
+#export:Data $ActiveStreamingAudio % [4 entries. 1 music + 3 sfx] | [32 Bytes total, 8 Bytes / entry]
+{
+/% 0x00 %/ 00000000             % AudioHeader*
+/% 0x04 %/ 00b                  % Voice Channel | Currently pretty much fixed at 20 - 23 respectively but can't hurt to have it be adjustable
+/% 0x05 %/ 00b                  % Frames until next DMA
+/% 0x06 %/ 00b                  % loop flag
+/% 0x07 %/ 00b                  % dma switch flag
+/% 0x08 %/ 00000000 00000000    % SFX Channel 1 | sus
+/% 0x10 %/ 00000000 00000000    % SFX Channel 2 | not implemented
+/% 0x18 %/ 00000000 00000000    % SFX Channel 3 | not implemented
+}

@@ -1,0 +1,427 @@
+#define .blockChainAmountForMusicSwap 3
+
+%E00A4310, 0xAA, 0x2E, 0x2E (rgb)
+
+#new:Script $KillMusic {
+    Call $API_StartCustomAudioPlayback(0 20` )
+    Return
+    End
+}
+
+@Hook:Battle 80244D24 { %on game over, kill audio
+    LA        A0, $KillMusic
+    LI        A1, 1
+    JAL       ~Func:start_script
+    CLEAR     A2
+    LUI v0, 8007
+    J 80244D2C
+    LW v0, 419C (v0)
+}
+
+#new:Data $EffectBallColorGreen {
+    70`
+    180`
+    120`
+}
+
+#new:Data $EffectBallColorRed {
+    210`
+    46`
+    46`
+}
+
+#new:Data $CurrentEffectBallColor {
+    70`
+    180`
+    120`    
+}
+
+#new:Data $EffectColorTable {
+    $EffectBallColorGreen
+    $EffectBallColorRed
+}
+
+#export:Function $ScrApi_SetEffectColor {
+    ADDIU sp, sp, -20
+    SW ra, 0014 (sp)
+
+    LW a1, 000C (a0) %load args pointer
+    JAL ~Func:get_variable
+    LW a1, 0000 (a1)
+
+    SLL v0, v0, 2 %multiply by sizeof(ptr)
+    LI v1, $EffectColorTable
+    ADDU v1, v1, v0
+    LW v1, 0000 (v1) %load effect color table wanted
+    LI v0, $CurrentEffectBallColor %where to copy color to
+    LW t0, 0000 (v1)
+    SW t0, 0000 (v0)
+
+    LW t0, 0004 (v1)
+    SW t0, 0004 (v0)
+
+    LW t0, 0008 (v1)
+    SW t0, 0008 (v0)
+
+    LW ra, 0014 (sp)
+    ADDIU sp, sp, 20
+    JR RA
+    ORI v0, r0, 2
+}
+
+#new:Function $ColorHook {
+    LI v1, $CurrentEffectBallColor
+    LW v0, 0000 (v1) %red
+    SW v0, 0020 (s0)
+    LW v0, 0004 (v1) %green
+    SW v0, 0024 (s0)
+    LW v0, 0008 (v1) %blue
+    LI at, E00A42A0
+    JR at
+    NOP
+}
+
+@Function:Battle 8025E260 {%remove one sound effect after winning a battle
+    NOP 
+}
+
+@Function:Battle 8025E2A0 {
+    NOP
+}
+
+@Function 3A3A6C {
+    LI t0, $ColorHook
+    JR t0
+    NOP
+}
+% @Function 3A3A6C {ADDIU v0, r0, 00AA} %E00A429C
+% @Function 3A3A74 {ADDIU v0, r0, 002E}
+% @Function 3A3A7C {ADDIU v0, r0, 002E}
+
+@Function:Battle 80253C30 {
+    ORI v0, r0, 1 %peekaboo always active
+}
+
+@Function:Battle 80253CB0 {
+    ORI v0, r0, 1 %peekaboo always active
+}
+
+#new:Data $blockInputFrame { 0 }
+
+@Hook:Battle 802779C4 { %check for mario blocks
+    SAW r0, $blockInputFrame %set previous block input frame to 0
+    .checkNormalGuard
+    JAL $check_block_input_guard
+    ORI a0, r0, 8000 %A button
+    .exit
+    J 802779CC
+    NOP
+}
+
+#new:Data $GuardFrameWindow {
+    00000003
+}
+
+#export:Function $SetGuardWindow {
+    ADDIU sp, sp, -18
+    SW ra, 0014 (sp)
+
+    LW a1, 000C (a0)
+    JAL ~Func:get_variable
+    LW a1, 0000 (a1) %var value to get
+
+    SAW v0, $GuardFrameWindow
+
+    LW ra, 0014 (sp)
+    ADDIU sp, sp, 18
+    JR RA
+    ORI v0, r0, 2
+}
+
+#export:Function $GetGuardWindow {
+    ADDIU sp, sp, -18
+    SW ra, 0014 (sp)
+
+    LW a1, 000C (a0)
+    LAW a2, $GuardFrameWindow
+    JAL ~Func:set_variable
+    LW a1, 0000 (a1) %var to set to
+
+    
+    LW ra, 0014 (sp)
+    ADDIU sp, sp, 18
+    JR RA
+    ORI v0, r0, 2
+}
+
+#new:Function $check_block_input_guard {
+    ADDIU          SP, SP, -38
+    SW             S4, 0020 (SP)
+    DADDU          S4, A0, R0
+    SW             S7, 002C (SP)
+    DADDU          S7, R0, R0
+    SW             S1, 0014 (SP)
+    LUI            S1, 800E
+    ADDIU          S1, S1, C070
+    SW             S5, 0024 (SP)
+    LUI            S5, 8011
+    ADDIU          S5, S5, F290
+    SW             S6, 0028 (SP)
+    LUI            S6, 802A
+    ADDIU          S6, S6, FBE0
+    SW             RA, 0030 (SP)
+    SW             S3, 001C (SP)
+    SW             S2, 0018 (SP)
+    SW             S0, 0010 (SP)
+    LB             V1, 0083 (S1)
+    ADDIU          V0, R0, FFFF
+    BNE            V1, V0, .blabel1
+    SB             R0, 0087 (S1)
+    LW             V0, 0000 (S1)
+    LUI            V1, 0200
+    AND            V0, V0, V1
+    BEQ            V0, r0, .blabel1
+    ADDIU          V0, R0, 0001
+    SB             V0, 0087 (S1)
+    BEQ            r0, r0, .end
+    ADDIU          V0, R0, 0001
+   .blabel1
+    LB             V0, 0083 (S1)
+    BEQ            V0, r0, .end
+    DADDU          V0, R0, R0
+    LUI            V0, 8007
+    LW             V0, 419C (V0)
+    LBU            V0, 00AA (V0)
+    ANDI           V0, V0, 0001
+    BNE            V0, r0, .end
+    DADDU          V0, R0, R0
+    LHU            V1, 0298 (S5)
+    SLTIU          V0, V1, 270F
+    BEQ            V0, r0, .blabel2
+    ADDIU          V0, V1, 0001
+    SH             V0, 0298 (S5)
+    BEQ            r0, r0, .blabel3
+    SH             R0, 006E (S6)
+   .blabel9
+    BEQ            r0, r0, .blabel4
+    ADDIU          S7, R0, 0001
+   .blabel13
+    ADDIU          V0, R0, 0001 %return blocked status (frame blocked can be found here)
+    SUBU t0, s0, a0 %block window - blocked input = blocked frame
+    SAW t0, $blockInputFrame %store frames blocked before last frame
+    SB             V0, 0087 (S1)
+    BEQ r0, r0,    .blabel5
+    ADDIU          S2, R0, 0001
+   .blabel2
+    ADDIU          V0, R0, 0001
+    SH             V0, 006E (S6)
+   .blabel3
+    DADDU          S2, R0, R0
+    %ADDIU          S0, R0, 0005 %B Button frame window
+    LAW            s0, $GuardFrameWindow
+    LUI            V0, 800E
+    LW             V0, C070 (V0)
+    LUI            V1, 0008
+    AND            V0, V0, V1
+    BNE            V0, r0, .blabel6
+    ADDIU          S3, R0, 000A %10 frame cooldown between block inputs
+    JAL            800E9D48
+    DADDU          A0, S2, R0
+    BNEL           V0, r0, .blabel6
+    ADDIU          S0, R0, 0001 %B button frame window with dodge master frames 
+   .blabel6
+    LB             V1, 0431 (S1) %get input buffer array start index?
+    ADDU           V0, S3, S0 %add cooldown between blocks + frame window?
+    SUBU           V1, V1, V0 %subtract input buffer array start - cooldown to get location to start reading in buffer?
+    BLTL           V1, r0, .blabel7
+    ADDIU          V1, V1, 0040
+   .blabel7
+    BEQ            S3, r0, .blabel4
+    DADDU          A0, R0, R0
+   .blabel10
+    SLTI           V0, V1, 0040
+    BEQL           V0, r0, .blabel8
+    ADDIU          V1, V1, FFC0
+   .blabel8
+    SLL            V0, V1, 2
+    ADDU           V0, S1, V0
+    LW             V0, 0330 (V0)
+    AND            V0, V0, S4
+    BNE            V0, r0, .blabel9
+    ADDIU          A0, A0, 0001
+    SLT            V0, A0, S3
+    BNE            V0, r0, .blabel10
+    ADDIU          V1, V1, 0001
+   .blabel4
+    LB             V1, 0431 (S1)
+    SUBU           V1, V1, S0
+    BLTL           V1, r0, .blabel11
+    ADDIU          V1, V1, 0040
+   .blabel11
+    BEQ            S0, r0, .blabel5
+    DADDU          A0, R0, R0
+   .blabel14
+    SLTI           V0, V1, 0040
+    BEQL           V0, r0, .blabel12
+    ADDIU          V1, V1, FFC0
+   .blabel12
+    SLL            V0, V1, 2
+    ADDU           V0, S1, V0
+    LW             V0, 0330 (V0)
+    AND            V0, V0, S4
+    BNE            V0, r0, .blabel13
+    ADDIU          A0, A0, 0001
+    SLT            V0, A0, S0
+    BNE            V0, r0, .blabel14
+    ADDIU          V1, V1, 0001
+   .blabel5
+    BEQ            S7, r0, .blabel15
+    ADDIU          V0, R0, FFFF
+    SB             V0, 0087 (S1)
+    DADDU          S2, R0, R0
+   .blabel15
+    ADDIU          V0, R0, 0001
+    BNE            S2, V0, .blabel16
+    ADDU           V0, S3, S0
+    LB             V1, 0431 (S1)
+    SUBU           V1, V1, V0
+    BLTL           V1, r0, .blabel17
+    ADDIU          V1, V1, 0040
+   .blabel17
+    BEQ            V0, r0, .blabel16
+    DADDU          A0, R0, R0
+    DADDU          A1, V0, R0
+   .blabel19
+    SLTI           V0, V1, 0040
+    BEQL           V0, r0, .blabel18
+    ADDIU          V1, V1, FFC0
+   .blabel18
+    SLL            V0, V1, 2
+    ADDU           V0, S1, V0
+    SW             R0, 0330 (V0)
+    ADDIU          A0, A0, 0001
+    SLT            V0, A0, A1
+    BNE            V0, r0, .blabel19
+    ADDIU          V1, V1, 0001
+   .blabel16
+    BEQ            S2, r0, .end
+    DADDU          V0, S2, R0
+    LH             V0, 006E (S6)
+    BNE            V0, r0, .end
+    DADDU          V0, S2, R0
+    LHU            V0, 029A (S5)
+    ADDIU          V0, V0, 0001
+    SH             V0, 029A (S5)
+    DADDU          V0, S2, R0
+   .end
+   JAL $SetMusicBasedOnChain
+   NOP
+    LW             RA, 0030 (SP)
+    LW             S7, 002C (SP)
+    LW             S6, 0028 (SP)
+    LW             S5, 0024 (SP)
+    LW             S4, 0020 (SP)
+    LW             S3, 001C (SP)
+    LW             S2, 0018 (SP)
+    LW             S1, 0014 (SP)
+    LW             S0, 0010 (SP)
+    JR             RA
+    ADDIU          SP, SP, 38
+}
+
+#new:Data $BlockChain { 0 }
+
+#export:Function $ScrAPI_GetBlockChain {
+    ADDIU sp, sp, -20
+    SW ra, 0018 (sp)
+    
+    LW a1, 000C (a0) %load pointer to script args
+    LAW a2, $BlockChain
+    JAL ~Func:set_variable
+    LW a1, 0000 (a1) %load var to store to
+
+    LW ra, 0018 (sp)
+    ADDIU sp, sp, 20
+    JR RA
+    ORI v0, r0, 2
+}
+
+#new:Function $SetMusicBasedOnChain {
+    ADDIU sp, sp, -20
+    SW ra, 0014 (sp)
+    %v0 holds block result currently
+    SW v0, 0018 (sp)
+
+    LI v1, $BlockChain
+    LW t8, 0000 (v1) %load cur block chain (will be used as prev value)
+    LW t0, 0000 (v1) %load current block chain
+    ADDIU t0, t0, 1
+    SW t0, 0000 (v1) %increment by 1
+    BEQL v0, r0, .blockMissed
+    SW r0, 0000 (v1) %reset to 0 if missed
+
+    %blockHit
+    ORI t1, r0, .blockChainAmountForMusicSwap
+    BNE t0, t1, .exit
+    NOP
+    JAL $HotswapMusic %player
+    NOP    
+    BEQ r0, r0, .exit
+    NOP
+
+    .blockMissed
+    SLTI t1, t8, .blockChainAmountForMusicSwap
+    BNE t1, r0, .exit
+    NOP
+    JAL $HotswapMusic %player
+    NOP
+
+    .exit
+    
+    LW ra, 0014 (sp)
+    LW v0, 0018 (sp)
+    ADDIU sp, sp, 20
+    JR RA
+    NOP
+}
+
+%swap music when chain of 5 is reached, reset when chain is lost
+% @Hook:Battle 80269110 {
+%     ADDIU sp, sp, 38 %restore from hook
+%     ADDIU sp, sp, -20
+%     SW ra, 0014 (sp)
+%     %v0 holds block result currently
+%     SW v0, 0018 (sp)
+
+%     LI v1, $BlockChain
+%     LW t8, 0000 (v1) %load cur block chain (will be used as prev value)
+%     LW t0, 0000 (v1) %load current block chain
+%     ADDIU t0, t0, 1
+%     SW t0, 0000 (v1) %increment by 1
+%     BEQL v0, r0, .blockMissed
+%     SW r0, 0000 (v1) %reset to 0 if missed
+
+%     %blockHit
+%     ORI t1, r0, .blockChainAmountForMusicSwap
+%     BNE t0, t1, .exit
+%     NOP
+%     JAL $HotswapMusic %player
+%     NOP    
+%     BEQ r0, r0, .exit
+%     NOP
+
+%     .blockMissed
+%     SLTI t1, t8, .blockChainAmountForMusicSwap
+%     BNE t1, r0, .exit
+%     NOP
+%     JAL $HotswapMusic %player
+%     NOP
+
+%     .exit
+    
+%     LW ra, 0014 (sp)
+%     LW v0, 0018 (sp)
+%     ADDIU sp, sp, 20
+%     JR RA
+%     NOP
+% }

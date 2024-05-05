@@ -1,0 +1,75 @@
+
+#message:2F:000
+{
+	[Style Right]
+	[NoSkip]Hello. It's me.[Pause:20][BR]
+	Geno.[Pause:20][BR]
+	And now... this is how...[Pause:30][BR]
+	We battle![Pause:10][BR]
+	[Wait][End]
+}
+
+#message:2F:001
+{
+	[Style Tattle]
+	This? This is Geno.[Pause:10][BR]
+	I can tell you his HP. 64.[Pause:10][BR]
+	That is all. I am left speechless...[Pause:10][BR]
+	Let's just do our best.[BR]
+	[Wait][End]
+}
+
+#message:2F:002
+{
+	[Style Inspect]
+	[BR]
+	[Color:03]    Thank you for checking out[BR]
+	 "This is how we [Wave]mod[/fx] Paper Mario"[BR]
+	[BR]
+	[Wait][Next]
+	[BR]
+	               [Color:00][Rainbow]CREDITS[/fx][BR]
+	[Wait][Next]
+	[Color:05][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][BR]
+	[Color:00]Mod by [Color:03]Rainchus [Color:00]& [Color:01]ShyBlookster137[BR]
+	[Color:00]for the Star Haven Battle Jam.[BR]
+	[Color:05][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][STAR][BR]
+	[Wait][Next]
+	[Color:23][Color:02]             Geno sprites[BR][BR]   Andrew (Ninspriter) Aguito[BR]   on Spriters Resource.[BR]
+	[Wait][Next]
+	        [Color:06]Title Screen drawing[BR][BR]Boss aka Miigle aka Rose aka Wario[BR][BR]
+	[Wait][Next]
+	             [Color:07]Voice of Geno[BR][BR]                 Twopie[BR][BR]
+	[Wait][Next]
+	          [Color:04][Wave][NOTE][NOTE][NOTE] Music [NOTE][NOTE][NOTE][/fx][BR]
+	Battle Theme: "Battling Smithy"[BR]
+	Super Mario RPG, Switch[BR]
+	[Wait][Next]
+	          [Color:03][Wave][NOTE][NOTE][NOTE] Music [NOTE][NOTE][NOTE][/fx][BR]
+	Credits Theme: "Maya Fey -[BR]Turnabout Sisters 2001"[BR]
+	Pheonix Wright - Ace Attorney, DS[BR]
+	[Wait][Next]
+	            [Color:0F]Special Thanks[BR][BR]
+	            Alex / Bates64 [NOTE][BR]                T00nbink[BR]
+	[Wait][Next]
+	[Color:36]We didn't quite manage to get[BR]
+	everything we wanted done on time[BR]
+	but hopefully you enjoyed this[BR]
+	tiny escapade nonetheless.[BR]
+	[Wait][End]
+}
+
+#message:2F:003
+{
+	[Style Right]
+	[Speed delay=1 chars=1][NoSkip]I see. you have bested me.[BR]
+	Very well. I shall leave today[BR]
+	but return another.[BR]
+	[Pause:60][Next]
+	Watch your overalls, Mario![BR]
+	Next time we meet I'll be using[BR]my full arsenal.[Pause:90][BR][DropShadow]No[Pause:20] holding[Pause:16] back.[/fx][Pause:25][BR]
+	[Next]
+	Until then, amigo.[Pause:20][BR]
+	[Wait][End]
+}
+

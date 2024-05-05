@@ -1,0 +1,116 @@
+#import 30_Geno.bpat
+
+% Aight barebones area patch aka Geno's house
+
+#new:Formation $Formation_00
+{
+	$Geno       % Actor Pointer
+    00000010    % Home Position Index or Actor3D pointer
+    0000000A    % Attack priority ( greater = faster)
+    00000000    % Actor Var 1
+    00000000    % Actor Var 2
+    00000000    % Actor Var 3
+    00000000    % Actor Var 4
+}
+
+#new:FormationTable $FormationTable
+{
+	00000000        % SJIS Name, unused
+    00000001        % # of Enemies in battle
+    $Formation_00   % Pointer to Formation aka Enemy List
+    $Stage_00       % Pointer to default Stage
+    00000000        % Demo reel script stuff aka 99% of the time unused
+	00000000 00000000 00000000 00000000 00000000    % Empty Entry -> Terminator
+}
+
+#new:StageTable $StageTable
+{
+	$ASCII_80219FE8     % Stage Name [ASCII]
+    $Stage_00           % Stage ID
+	00000000 00000000   % 0 Terminator
+}
+
+
+#new:Script $Script_BeforeBattle_Geno
+{
+	%Call  SetSpriteShading  ( FFFFFFFF )
+ 	%Exec  $Script_80219D30
+   	%Exec  $Script_80219E78
+  	Return
+  	End
+}
+
+#new:Script $Script_AfterBattle_Geno
+{
+	Return
+	End
+}
+
+#new:Stage $Stage_00
+{
+	$ASCII_8021A018  % Texture [ASCII]
+	$ASCII_8021A008  % Shape Data [ASCII]
+	$ASCII_80219FF8  % Hit Data [ASCII]
+	$Script_BeforeBattle_Geno % BeforeBattle Script
+	$Script_AfterBattle_Geno % BeforeBattle Script
+	$ASCII_80219FF0  % Stage Background
+	00000000        % ?
+	00000000        % ?
+	00000000        % ?
+	00000000        % ?
+}
+
+
+
+#new:ASCII $ASCII_80219FE8
+{
+	"tih_bt00"
+}
+
+#new:ASCII $ASCII_80219FF0
+{
+	"hos_bg"
+}
+
+#new:ASCII $ASCII_80219FF8
+{
+	"tih_bt00_hit"
+}
+
+#new:ASCII $ASCII_8021A008
+{
+	"tih_bt00_shape"
+}
+
+#new:ASCII $ASCII_8021A018
+{
+	"hos_tex"
+}
+
+
+/%
+#new:ASCII $ASCII_80219FF0
+{
+	"hos_bg"
+}
+
+#new:ASCII $ASCII_80219FE8
+{
+	"kmr_bt04"
+}
+
+#new:ASCII $ASCII_80219FF8
+{
+	"kmr_bt04_hit"
+}
+
+#new:ASCII $ASCII_8021A008
+{
+	"kmr_bt04_shape"
+}
+
+#new:ASCII $ASCII_8021A018
+{
+	"hos_tex"
+}
+%/

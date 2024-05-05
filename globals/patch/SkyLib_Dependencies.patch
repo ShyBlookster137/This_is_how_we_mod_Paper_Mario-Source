@@ -1,0 +1,25 @@
+% Structs and whatnot for use with SkyLib_image. todo: find better patch name ig
+
+#export .TargetFPS_30   00000000
+#export .TargetFPS_15   00000001
+#export .TargetFPS_10   00000002
+
+
+%%% NAMING CONVENTIONS %%%
+% Palette Pointer:     "$plt_[AnimationName]"
+% Animation Header:    "$anm_[AnimationName]"
+
+
+
+#export:Data $ActiveCustomFX % 1 entry = 12 bytes [0x0C]
+{
+/% 0x00 %/ 00000000     % animationHeader* | If this is 0000 0000 it will always be treated as empty
+/% 0x04 %/ 0000s        % currentFrame | I'll be real if you ever come close to even just needing 1000 frames in a single animation you are deranged.
+/% 0x06 %/ 00b          % fpsTimer (0 = 30, 1 = 15, 2 = 10, 3 = 7.5)
+/% 0x07 %/ 00b          % opacity
+/% 0x08 %/ 0000s        % x_pos
+/% 0x0A %/ 0000s        % y_pos
+/% 0x0C %/ 00000000 00000000 00000000 % 2nd slot
+/% 0x18 %/ 00000000 00000000 00000000 % 3rd slot
+/% 0x24 %/ 00000000 00000000 00000000 % 4th slot
+}

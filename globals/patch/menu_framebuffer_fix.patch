@@ -1,0 +1,5 @@
+%skips a certain section of frame buffer code responsible for lag
+@Function 2E2C
+{
+    BEQ  R0, R0, 10C 
+}

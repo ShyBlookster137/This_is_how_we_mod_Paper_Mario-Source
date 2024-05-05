@@ -1,0 +1,243 @@
+#define .Goombario 1
+#define .Kooper 2
+#define .Bombette 3
+#define .Parakarry 4
+#define .Goompa 5
+#define .Watt 6
+#define .Sushie 7
+#define .Lakilester 8
+#define .NoRank 0
+#define .SuperRank 1
+#define .UltraRank 2
+
+#define .ListEnd FFFFFFFE
+
+#define .NoBoots FFFFFFFF
+#define .NormalBoots 00000000
+#define .SuperBoots 00000001
+#define .UltraBoots 00000002
+
+#define .NoHammer FFFFFFFF
+#define .NormalHammer 00000000
+#define .SuperHammer 00000001
+#define .UltraHammer 00000002
+
+%DEBUG PARAMETERS
+
+#define .StoryProgressToSet FFFFFF9E
+#define .PartnerLevelToSet 2
+#define .NewMapEntry 0
+#new:ASCII $NewMapStr {
+   "tih_00"
+}
+
+#new:IntTable $StartingItems {
+   .Item:FireFlower
+   .Item:Apple
+   .Item:SuperShroom
+   .ListEnd
+}
+
+#new:IntTable $StartingBadges {
+   .Item:PowerJump
+   .Item:PowerPlusA
+   .Item:PowerPlusB
+   .Item:AttackFXD
+   .Item:SmashCharge
+   .Item:DefendPlusA
+   .Item:DDownJump
+   .Item:DeepFocus1
+   .Item:MegaRush
+   .Item:PowerRush
+   .Item:LastStand
+   111` %p-up d-down
+   .Item:MegaJump
+   .ListEnd
+}
+
+#new:IntTable $StartingBootAndHammerUpgrades {
+   .UltraBoots
+   .UltraHammer
+}
+
+#new:IntTable $StartingPartners {
+   .ListEnd
+}
+
+#new:IntTable $FollowingPartner {
+   .Goombario
+}
+
+#new:IntTable $Stats {
+   22` %hp
+   22` %fp
+   30` %bp
+}
+
+%END OF PARAMETERS
+
+#new:Function $SetStats {
+   LI t0, 8010F290
+   LI t1, $Stats
+
+   LW t2, 0000 (t1)
+   SB t2, 0002 (t0) %set cur hp
+   SB t2, 0003 (t0) %set max hp
+   SB t2, 0004 (t0) %set true max hp
+
+   LW t2, 0004 (t1)
+   SB t2, 0005 (t0) %set cur fp
+   SB t2, 0006 (t0) %set max fp
+   SB t2, 0007 (t0) %set true max fp
+
+   LW t2, 0008 (t1) %load bp
+   SB t2, 0008 (t0)
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GiveBootsAndHammer {
+   LI t0, 8010F290
+   LI t1, $StartingBootAndHammerUpgrades
+   LW t2, 0000 (t1) %get boots val
+   SB t2, 0000 (t0) %set boots
+   LW t2, 0004 (t1) %get hammer val
+   SB t2, 0001 (t0) %set hammer
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GiveStartingPartners {
+   LI t0, $StartingPartners
+   LI t1, 8010F2A4 %start of partners (slot 0)
+   ADDIU t2, r0, .ListEnd
+   ORI t6, r0, 1
+   .loop
+   LW t3, 0000 (t0)
+   BEQ t2, t3, .exit
+   NOP
+   SLL t5, t3, 3 %multiply by 8
+   ADDU t5, t1, t5
+   SB t6, 0000 (t5) %set partner
+   LW t4, 0004 (t0)
+   SB t4, 0001 (t5) %set partner level
+   BEQ r0, r0, .loop
+   ADDIU t0, t0, 8
+   .exit
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GiveStartingItems {
+   LI t0, 0 %loop counter
+   LI t1, 8010F456
+   LI t2, $StartingItems
+   ADDIU t3, r0, .ListEnd
+   .loop
+   LW t4, 0000 (t2) %load cur item to give
+   BEQ t4, t3, .exit
+   NOP
+   SH t4, 0000 (t1)
+   ADDIU t1, t1, -2
+   BEQ r0, r0, .loop
+   ADDIU t2, t2, 4
+   .exit
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GiveStartingBadges {
+   LI t0, 0 %loop counter
+   LI t1, 8010F344
+   LI t2, $StartingBadges
+   ADDIU t3, r0, .ListEnd
+   .loop
+   LW t4, 0000 (t2) %load cur item to give
+   BEQ t4, t3, .exit
+   NOP
+   SH t4, 0000 (t1)
+   ADDIU t1, t1, 2
+   BEQ r0, r0, .loop
+   ADDIU t2, t2, 4
+   .exit
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GiveActionCommands {
+   ORI t0, r0, 1
+   SAB t0, 8010F29A
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $GivePartners {
+   ORI v0, r0, 1 %goombario ID
+   SAB v0, 8010F2A2 %store current partner
+   ORI v0, r0, 1 %loop count
+   ORI v1, r0, 0100 %set parnter bool true value
+   ORI t0, r0, .PartnerLevelToSet %partner upgrade amount
+   OR v1, v1, t0
+   LIO t0, 8010F2A4
+   ORI t4, r0, 5 %goompa
+   .loop
+   BEQL v0, t4, .loop %is goompa
+   ADDIU v0, v0, 1 %increment loop count
+   SLL t1, v0, 3 %multiply loop count by sizeof partner struct
+   ADDU t2, t1, t0 %get offset into struct
+   SH v1, 0000 (t2) %set partner and upgrade
+   SLTI t3, v0, 8 %8 partners
+   BNE t3, r0, .loop
+   ADDIU v0, v0, 1 %increment loop count
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Script $Script_AddBadges {
+   Set *Var[0] 00E0
+   Loop 6A
+       Call AddBadge ( *Var[0] *Var[1] )
+       Add *Var[0] 1
+   EndLoop  
+   Return
+   End
+}
+
+#new:Function $SetBpTo30 {
+   LI t0, 8010F290
+   ORI t1, r0, 9`
+   SB t1, 0008 (t0) %set BP
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Function $SetFollowingParnter {
+   LI t0, $FollowingPartner
+   LW t1, 0000 (t0)
+   SAB t1, 8010F2A2
+   JR RA
+   ORI v0, r0, 2
+}
+
+#new:Script $Script_GiveDebugEquipment {
+   %debug
+   %Call $GivePartners ()
+   Set *GB_StoryProgress .StoryProgressToSet
+   Call $SetBpTo30 ()
+   Call $GiveActionCommands ()
+   Call $GiveStartingItems()
+   Call $GiveStartingBadges ()
+   Call $GiveBootsAndHammer()
+   Call $SetStats()
+   %Call $SetFollowingParnter ()
+   %Call $GiveStartingPartners ()
+   Call GotoMap ($NewMapStr .NewMapEntry)
+   Return
+   End
+}
+
+@ $Script_8024FD70 { % Script only ran on First Play
+   Exec $Script_GiveDebugEquipment
+   Return
+   End
+}
